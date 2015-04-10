@@ -18,9 +18,13 @@ local Base_Meta = {
       return this.Object.Schemas;
     end,
     
-    --[[FileTextFormat = function(this)
-      this.Source = this.Source:gsub();
-    end]]
+    GetCDATA = function(this)
+      return this.Object.CDATA;
+    end,
+    
+    GetDOCTYPE = function(this)
+      return this.Object.DOCTYPE;
+    end
   },
 }
 
@@ -109,7 +113,7 @@ local Meta = {
       return o;
     end,
     
-    GetSource = function(this)
+    --[[GetSource = function(this)
       return this.Source;
     end,
     
@@ -123,7 +127,7 @@ local Meta = {
     
     GetPreprocessing = function(this)
       return this.Object.Preprocessing;
-    end,
+    end,]]
   },
 }
 
@@ -149,6 +153,8 @@ function M.new(xml, source)
         ["Preprocessing"] = {};
         ["Data"] = {};
         ["Schemas"] = {};
+        ["CDATA"] = {};
+        ["DOCTYPE"] = {};
       };
       
       Source = source or "";

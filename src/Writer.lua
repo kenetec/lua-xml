@@ -3,21 +3,37 @@ local M = {};
 local Reader = require("src.Reader");
 local Element = require("src.Lib.Element");
 local XMLObject = require("src.Lib.XMLObject");
-
-function Recurse(e)        
-  local r = {}
-  for _, child in next, e['@Children'] do
-    r[#r + 1] = child;
-    for i, v in next, Recurse(child) do r[#r + 1] = v; end
-  end
-  
-  return r;
-end
+local CDATA = require("src.Lib.CDATA");
+local Doctype = require("src.Lib.Doctype");
 
 local Meta = {
-  __index = {
-    CreateComment = function(this, str)
-      this.buffer[#this.buffer+1] = str;
+  __index = {    
+    -- str is in xml format
+    Write = function(this, str, parent)
+      parent = parent or nil;
+      local converted = (Reader.Do(str, function() end, nil, parent)):GetData();
+      
+      for i, v in next, converted do
+        local ok = false;
+        
+        for _, element in next, this.buffer do
+          if (element == parent) then
+            element['@Children'][#element['@Children']+1] = v;
+            ok = true;
+          else
+            for _, child in next, Reader.Recurse(element) do
+              if (child == parent) then
+                child['@Children'][#child['@Children']+1] = v;
+                ok = true;
+              end
+            end
+          end
+        end
+        
+        if not (ok) then
+          this.buffer[#this.buffer+1] = v;
+        end
+      end
     end,
 
     CreateElement = function(this, tag, attributes, data, parent, pre)  
@@ -43,7 +59,7 @@ local Meta = {
       if not (parent) then this.buffer[#this.buffer+1] = element;else      
         for _, v in next, this.buffer do
           if (v == parent) then v['@Children'][#v['@Children']+1] = element; else
-            for i, child in next, Recurse(v) do
+            for i, child in next, Reader.Recurse(v) do
               if (child == parent) then
                 child['@Children'][#child['@Children']+1] = element;
               end
@@ -55,7 +71,7 @@ local Meta = {
       return element;
     end,
     
-    Compile = function(this)
+    CompileAll = function(this)
       local result = "";
       
       local function BuildElement(e)
@@ -76,17 +92,34 @@ local Meta = {
       
       local function GoThroughElement(e)
         local res = "";
-        res = BuildElement(e) .. e['@Data'] or '';
-        for i, element in next, e['@Children'] do res = res .. GoThroughElement(element); end
-        res = res .. '</'..e:GetRawTag()..'>';
+        if (getmetatable(e).__type == "Element") then
+          res = BuildElement(e) .. e['@Data'] or '';
+          for i, element in next, e['@Children'] do res = res .. GoThroughElement(element); end
+          res = res .. '</'..e:GetRawTag()..'>';
+        else
+          res = res .. tostring(e);
+        end
         return res;
       end
       
       for _, element in next, this.buffer do
-        result = result .. GoThroughElement(element);
+        if (type(element) == "table") then
+          if (getmetatable(element).__type == "Element") then
+            result = result .. GoThroughElement(element);
+          else
+            result = result .. tostring(element);
+          end
+        elseif (type(element) == "string") then
+          result = result .. element;
+        end
       end
       
-      this.document = Reader.Read(result, function() end);
+      return Reader.Read(result, function() end), result;
+    end,
+    
+    Compile = function(this)
+      local result;
+      this.document, result = this:CompileAll();
       
       return result;
     end,

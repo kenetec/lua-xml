@@ -2,6 +2,8 @@ local M = {};
 
 local Element = require("src.Lib.Element");
 local XMLObject = require("src.Lib.XMLObject");
+local CDATA = require("src.Lib.CDATA");
+local Doctype = require("src.Lib.Doctype");
 
 function M.LinesToString(file)
   if (type(file) == "userdata") then
@@ -21,6 +23,13 @@ function M.Get(str, reft, parent)
   for comment in str:gmatch('<!--(.-)*-->') do result[#result+1] = comment:sub(2, comment:len()-1); end
   if (str:find('<!--(.-)*-->')) then str = str:gsub('<!--(.-)*-->', '') end
   
+  -- DOCTYPE
+  for data in str:gmatch('<!DOCTYPE([^>]*)>') do result[#result+1] = Doctype.new(data); end
+  
+  -- CDATA
+  for data in str:gmatch('<!%[CDATA%[(.*)%]%]>') do result[#result+1] = CDATA.new(data); end
+  
+  -- Processor
   for t, a in str:gmatch('<%?([%w_%-?:?%w_%-?]+)([^>]*)%?>') do
     local attribs = {};
     local reference = {};
@@ -79,6 +88,7 @@ function M.Get(str, reft, parent)
     }
   end
   
+  -- Element
   for t, a, d in str:gmatch('<([%w_%-:?%w_%-]+)([^>]*)>(.-)</%1>') do
     local attribs = {};
     local reference = {};
@@ -148,6 +158,9 @@ function M.GetSingle(str, reft, parent)
   
   for comment in str:gmatch('<!--(.-)*-->') do result[#result+1] = comment:sub(2, comment:len()-1); end
   if (str:find('<!--(.-)*-->')) then str = str:gsub('<!--(.-)*-->', '') end
+  
+  -- CDATA
+  for data in str:gmatch('<!%[CDATA%[(.*)%]%]>') do result[#result+1] = CDATA.new(data); end
   
   for t, a in str:gmatch('<%?([%w_%-?:?%w_%-?]+)([^>]*)%?>') do
     local attribs = {};
@@ -325,67 +338,68 @@ function M.Recurse(e)
   return r;
 end
 
-function M.Read(source, f)  
-  local function Do(xml)
-    local function GoThroughElement(e, r, f, p)
-      local result = {};
-      
-      for element in M.iGet(e['@Data'], r, p) do
-        local pp = p and p:GetFullPath() or "";
-        
-        if (pp ~= "") then
-          pp = pp .. '.' .. tostring(element);
-        else
-          pp = tostring(element);
-        end
-        
-        p = element;
-        
-        f(element);
-        result[#result+1] = element;
-        for i, v in next, GoThroughElement(element, r, f, p) do result[#result]['@Children'][#result[#result]['@Children']+1] = v;end
-        
-        pp = M.Split(pp, '.');
-        table.remove(pp, #pp);
-        pp = table.concat(pp, '.');
-        p = element['@Parent'];
-      end
-      return result;
-    end
+function M.Do(xml, f, newXml, parent)
+  newXml = newXml or XMLObject.new(nil, xml);
+  
+  local function GoThroughElement(e, r, f, p)
+    local result = {};
     
-    local function GetScope(x, f)      
-      local newXml = {
-        ["Comments"] = {};
-        ["Preprocessing"] = {};
-        ["Data"] = {};
-        ["Schemas"] = {};
-      };
-      
-      local _, schemas = M.Get(M.Optimize(x));
-      newXml.Schemas[#newXml.Schemas+1] = schemas;
-      
-      for element in M.iGet(x) do        
-        f(element);
-        
-        if (type(element) == "table") then
-          if not (element["@Preprocessor"]) then
-            element['@Children'] = GoThroughElement(element, schemas, f, element);
-            newXml.Data[#newXml.Data+1] = element;
-          else
-            newXml.Preprocessing[#newXml.Preprocessing+1] = element;
-          end
-        else
-          newXml.Comments[#newXml.Comments+1] = element;
-        end
-      end
-      
-      return newXml;
+    for element in M.iGet(e['@Data'], r, p) do      
+      f(element);
+      result[#result+1] = element;
+      for i, v in next, GoThroughElement(element, r, f, element) do 
+        if (result[#result]['@Children']) then result[#result]['@Children'][#result[#result]['@Children']+1] = v;
+        else result[#result+1] = v; end end
+      p = element['@Parent'];
     end
-    
-    return XMLObject.new(GetScope(xml, f), xml);
+    return result;
   end
   
-  return Do(M.LinesToString(source));
+  local function GetScope(x, f) 
+    local _, schemas = M.Get(M.Optimize(x), nil, parent);
+    for i, v in next, schemas do newXml.Object.Schemas[#newXml.Object.Schemas+1] = v; end
+    
+    local schemahash = {};
+    local schemares = {};
+    
+    for i, v in next, newXml.Object.Schemas do
+      if (not schemahash[v]) then
+        schemares[#schemares+1] = v;
+        schemahash[v]=true;
+      end
+    end
+    
+    newXml.Object.Schemas = schemares;
+    
+    for element in M.iGet(x) do
+      f(element);
+      
+      if (type(element) == "table") then
+        if (getmetatable(element).__type == "Element") then
+          if not (element["@Preprocessor"]) then            
+            element['@Children'] = GoThroughElement(element, newXml.Object.Schemas, f, element);
+            newXml.Object.Data[#newXml.Object.Data+1] = element;
+          else
+            newXml.Object.Preprocessing[#newXml.Object.Preprocessing+1] = element;
+          end
+        elseif (getmetatable(element).__type == "CDATA") then
+          newXml.Object.CDATA[#newXml.Object.CDATA+1] = element;
+        elseif (getmetatable(element).__type == "DOCTYPE") then
+          newXml.Object.DOCTYPE = element;
+        end
+      else
+        newXml.Object.Comments[#newXml.Object.Comments+1] = element;
+      end
+    end
+    
+    return newXml;
+  end
+  
+  return GetScope(xml, f);
+end
+
+function M.Read(source, f)  
+  return M.Do(M.LinesToString(source), f);
 end
 
 return M;
