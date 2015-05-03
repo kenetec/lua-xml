@@ -60,7 +60,7 @@ function M.GetXML(source, reference, parent, xmlParent)
     source = source:gsub("<([%w_%-?:?%w_%-?]+)([^>]*)/>", "<%1%2></%1>");
     
     -- Create XML Object
-    local result = xmlParent or XMLObject.new(nil, arg);
+    local result = xmlParent or XMLObject.new(nil, source);
     
     -- Read and remove comments
     for comment in source:gmatch("<!--(.-)*-->") do 
