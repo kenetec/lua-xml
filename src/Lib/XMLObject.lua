@@ -103,9 +103,7 @@ local Meta = {
   },
 }
 
-function M.new(xml, source)
-  file = file or nil;
-  
+function M.new(xml, source)  
   local xml_meta = {
     __type = "XMLObject";
     __index = {};
