@@ -13,7 +13,7 @@ local function ToString(arg)
         end
         
         return table.concat(list);
-    elseif (type(arg) == "stirng") then
+    elseif (type(arg) == "string") then
         return tostring(arg);
     end
 end
