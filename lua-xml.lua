@@ -18,10 +18,6 @@ function M.Load(arg)
     end
 end
 ------------------------------------------------------------------------------
-function M.CreateWriter(xml)
-    return Writer.new(xml);
-end
-------------------------------------------------------------------------------
 function M.typeof(o)
     if (type(o) == "table") then
         if (getmetatable(o)) then
