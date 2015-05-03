@@ -10,8 +10,8 @@ local Base_Meta = {
       return this.Object.Comments;
     end,
     
-    GetPreprocessing = function(this)
-      return this.Object.Preprocessing;
+    GetProcessing = function(this)
+      return this.Object.Processing;
     end,
     
     GetSchemas = function(this)
@@ -31,19 +31,7 @@ local Base_Meta = {
 local Meta = {
   __index = {
     GetDataObject = function(this)
-      local Data_Meta = {
-        __index = function(self, key)
-          if (key:sub(1, 1) == '$') then
-            return rawget(self, key:sub(2));
-          else
-            for i, v in next, rawget(self, 'Data') do
-              if (v["@Tag"] == key) then
-                return v;
-              end
-            end
-          end      
-        end,
-      }
+      local Data_Meta = {};
       
       local o = setmetatable({
           Data = this.Object.Data;
@@ -56,7 +44,7 @@ local Meta = {
         local result = {};
         
         for _, element in next, self.Data do
-          if (element['@Tag'] == id) then
+          if (element['Tag'] == id) then
             if (occurances ~= nil) then
               if (matched <= occurances) then
                 result[#result+1] = element;
@@ -92,7 +80,7 @@ local Meta = {
         
         local function recurse(e)        
           local r = {}
-          for _, child in next, e['@Children'] do
+          for _, child in next, e['Children'] do
             r[#r + 1] = child;
             for i, v in next, recurse(child) do r[#r + 1] = v; end
           end
@@ -112,22 +100,6 @@ local Meta = {
       
       return o;
     end,
-    
-    --[[GetSource = function(this)
-      return this.Source;
-    end,
-    
-    GetData = function(this)
-      return this.Object.Data;
-    end,
-    
-    GetComments = function(this)
-      return this.Object.Comments;
-    end,
-    
-    GetPreprocessing = function(this)
-      return this.Object.Preprocessing;
-    end,]]
   },
 }
 
@@ -150,11 +122,11 @@ function M.new(xml, source)
   return setmetatable({
       Object = xml or {
         ["Comments"] = {};
-        ["Preprocessing"] = {};
+        ["Processing"] = {};
         ["Data"] = {};
         ["Schemas"] = {};
         ["CDATA"] = {};
-        ["DOCTYPE"] = {};
+        ["DOCTYPE"] = "";
       };
       
       Source = source or "";

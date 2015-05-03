@@ -1,45 +1,14 @@
 local M = {};
 
-local Meta = {
-  __type = "Element";
-  __index = function(this, key)
-    if (key:sub(1, 1) == '@') then
-      return rawget(this, 'T')[key:sub(2)];
-    elseif (key:sub(1, 1) == '$') then
-      return rawget(this, key:sub(2));
-    else
-      for i, v in next, rawget(rawget(this, 'T'), 'Children') do
-        if (v['@Tag'] == key) then 
-          return v; 
-        end 
-      end
-    end      
-  end,
-  
-  __newindex = function(this, key, value)
-    if (key:sub(1, 1) == '@') then
-      rawset(rawget(this, 'T'), key:sub(2), value);
-    elseif (key:sub(1, 1) == '$') then
-      rawset(this, key:sub(2), value);
-    elseif (type(value) == "function") then
-      rawset(this, key, value);
-    else
-      for i, v in next, rawget(rawget(this, 'T'), 'Children') do
-        if (v['@Tag'] == key) then 
-          rawset(v, key, value);
-          return;
-        end 
-      end
+function M.newElement(T)
+   local Meta = {
+    __type = "Element";
+    __tostring = function(this)
+        return rawget(this, 'Tag');
     end
-  end,
-  
-  __tostring = function(this)
-    return rawget(this, 'T')["Tag"];
-  end
-}
-
-function M.new(T)
-  local o = setmetatable({T = T;}, Meta);
+   }; 
+    
+  local o = setmetatable(T, Meta);
 
   o.GetElements = function(this, id, occurances)
     occurances = occurances or nil;
@@ -47,9 +16,9 @@ function M.new(T)
     local matched = 1;
     local result = {};
     
-    for _, element in next, this['@Children'] do
+    for _, element in next, this['Children'] do
       if (type(id) == "string") then
-        if (element['@Tag'] == id) then
+        if (element['Tag'] == id) then
           if (occurances ~= nil) then
             if (matched <= occurances) then
               result[#result+1] = element;
@@ -83,8 +52,8 @@ function M.new(T)
     local matched = 1;
     local result = {};
     
-    for _, element in next, this['@Children'] do
-      for ea_key, ea_val in next, element['@Attributes'] do
+    for _, element in next, this['Children'] do
+      for ea_key, ea_val in next, element['Attributes'] do
         if (arg[ea_key]) then
           if (arg[ea_key] == ea_val) then
             if (occurances ~= nil) then
@@ -143,14 +112,14 @@ function M.new(T)
           local function goThroughChildren(t)
             local temp = {};
             for _, c in next, t do 
-              for _, child in next, c['@Children'] do
+              for _, child in next, c['Children'] do
                 temp[#temp + 1] = child; 
               end
             end
             return temp;
           end
           
-          for _, child in next, e['@Children'] do r[#r + 1] = child;end
+          for _, child in next, e['Children'] do r[#r + 1] = child;end
           
           local final = {};
           cl=cl+1;
@@ -176,7 +145,7 @@ function M.new(T)
         end
       else
         local r = {}
-        for _, child in next, e['@Children'] do
+        for _, child in next, e['Children'] do
           r[#r + 1] = child;
           for i, v in next, recurse(child) do r[#r + 1] = v; end
         end
@@ -186,7 +155,7 @@ function M.new(T)
     end
     
     for _, element in next, recurse(this) do
-      if (element['@Tag'] == id) then
+      if (element['Tag'] == id) then
         if (occurances ~= nil) then
           if (matched <= occurances) then
             result[#result+1] = element;
@@ -204,39 +173,37 @@ function M.new(T)
   end
   
   o.GetTag = function(this)
-    return this['@Tag']:match('%[.-%](.*)') or this['@Tag'];
+    return this['Tag']:match('%[.-%](.*)') or this['Tag'];
   end
   
   o.GetFullPath = function(this)
-    if (this['@ParentPath'] == "") then return tostring(this); end
-    return this['@ParentPath'] .. '.' .. tostring(this);
-  end
-  
-  o.GetParent = function(this)
-    return this['@Parent'];
-  end
-  
-  o.GetAttributes = function(this)
-    return this['@Attributes'];
-  end
-  
-  o.GetRawTag = function(this)
-    return this['@RawTag'];
-  end
-  
-  o.GetThisElement = function(this)
-    return rawget(this, 'T');
-  end
-  
-  o.Edit = function(this, index, value)
-    rawset(this:GetThisElement(), index, value);
-  end
-  
-  o.Get = function(this, index)
-    return rawget(this:GetThisElement(), index);
+    if (this['ParentPath'] == "") then return tostring(this); end
+    return this['ParentPath'] .. '.' .. tostring(this);
   end
 
   return o;
+end
+
+function M.newDoctype(data)
+    local DocMeta = {
+        __type = "DOCTYPE";
+        __tostring = function(this) return '<!DOCTYPE'..this.Data..'>'; end
+    }
+
+    return setmetatable({
+        Data = data;
+    }, DocMeta);
+end
+
+function M.newCData(data)
+    local CDMeta = {
+        __type = "CDATA";
+        __tostring = function(this) return '<![CDATA['..this.Data..']]>'; end
+    }
+    
+    return setmetatable({
+        Data = data;
+    }, CDMeta);
 end
 
 return M;
