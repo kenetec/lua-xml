@@ -29,7 +29,7 @@ local Base_Meta = {
 }
 
 local Meta = {
-  __index = {
+  __index = {  
     GetDataObject = function(this)
       local Data_Meta = {};
       
@@ -100,6 +100,75 @@ local Meta = {
       
       return o;
     end,
+    
+    --[[DOM = function(this)
+        --[[local function recurse(e, parent) 
+          local r = parent or {};
+          
+          local copy = setmetatable(e, {__index = function(s, k) 
+                      if (s[k]) then
+                        return s[k]; 
+                    else
+                        return rawget(s, 'Children')[k]; 
+                    end 
+                end});
+                        
+           r[e.Tag] = copy;
+           
+          for _, child in next, e['Children'] do
+            for i, v in next, recurse(child, child) do 
+                print(v, type(v))
+                local v_copy = setmetatable(v, {__index = function(s, k) 
+                    if (s[k]) then
+                        return s[k]; 
+                    else
+                        return rawget(s, 'Children')[k]; 
+                    end 
+                end});
+                
+                r[e.Tag].Children[#r[e.Tag].Children+1] = v_copy;
+            end
+          end
+          
+          return r;
+        end
+        
+        local function recurse(element)
+            local result = {};
+            
+            local elementCopy = setmetatable(element, {
+                    __index = function(s, k) 
+                        if (rawget(s, k)) then
+                            return rawget(s, k); 
+                        else
+                            return rawget(s, 'Children')[k]; 
+                        end 
+                    end
+                });
+            
+            result[elementCopy.Tag] = elementCopy;
+            
+            for _, child in next, elementCopy.Children do
+                for index, children in next, recurse(child) do
+                    
+                end
+            end
+            
+            return result;
+        end
+        
+        local table = recurse(this.Object.Data[1]);
+                    
+          return setmetatable({}, {
+                __index = function(self, k)
+                    for i, v in next, table do
+                        if (table[i] == k) then
+                            return table[i];
+                        end
+                    end
+                end,
+            });
+      end,]]
   },
 }
 

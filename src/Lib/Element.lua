@@ -172,6 +172,40 @@ function M.newElement(T)
     return result;
   end
   
+  o.Iter = function(this, target)
+      target = target or nil;
+      local tab;
+      
+      if (target) then
+          tab =  this:Find(target);
+      else
+        tab = {};
+        
+        local function recurse(e)        
+            local r = {}
+            for _, child in next, e['Children'] do
+              r[#r + 1] = child;
+              for i, v in next, recurse(child) do r[#r + 1] = v; end
+            end
+            
+            return r;
+        end
+        
+        for _, element in next, recurse(this) do
+            tab[#tab+1] = element;
+        end
+      end
+      
+      local iteration = 0;
+      local num = #tab;
+      
+      
+      return function()
+          iteration = iteration + 1;
+          if (iteration <= num) then return tab[iteration]; end
+      end
+  end
+  
   o.GetTag = function(this)
     return this['Tag']:match('%[.-%](.*)') or this['Tag'];
   end
